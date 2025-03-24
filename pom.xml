@@ -15,7 +15,30 @@
     <jacoco.version>0.8.10</jacoco.version>
     <checkstyle.version>3.2.0</checkstyle.version>
   </properties>
-
+  <profiles>
+    <profile>
+        <id>run</id>
+        <build>
+            <plugins>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>3.0.0</version>
+                    <configuration>
+                        <mainClass>edu.flashcard.FlashCardApp</mainClass>
+                        <arguments>
+                            <argument>src/main/java/edu/flashcard/cards.txt</argument>
+                            <argument>--order</argument>
+                            <argument>recent-mistakes-first</argument>
+                            <argument>--repetitions</argument>
+                            <argument>3</argument>
+                        </arguments>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </build>
+    </profile>
+</profiles>
   <dependencies>
     <dependency>
       <groupId>junit</groupId>

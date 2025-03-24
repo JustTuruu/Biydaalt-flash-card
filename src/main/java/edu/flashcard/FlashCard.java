@@ -1,8 +1,6 @@
 package edu.flashcard;
 
-/**
- * Represents a single flash card with tracking capabilities.
- */
+
 public class FlashCard {
   private final String question;
   private final String answer;

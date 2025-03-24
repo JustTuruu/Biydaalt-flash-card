@@ -20,7 +20,7 @@ public class AchievementSystem {
   }
 
   private void checkRepeatAchievement(FlashCard card) {
-    if (card.getTotalAttempts() >= 5) {
+    if (card.getTotalAttempts() >= 2) {
       unlock("REPEAT", "Answered a card 5+ times");
     }
   }
