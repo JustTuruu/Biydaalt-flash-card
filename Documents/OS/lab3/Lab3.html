@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Процессын төлөвлөлт &amp; MIPS тооцоолол — Interactive</title>
+    <style>
+      :root { --bg: #f6f8fb; --card: #ffffff; --accent: #2563eb; --muted: #6b7280 }
+      html, body { height: 100%; }
+      body {
+        font-family: Inter, Segoe UI, Roboto, Arial;
+        margin: 0;
+        background: var(--bg);
+        color: #111;
+      }
+      header {
+        background: linear-gradient(90deg, #eef2ff, #ffffff);
+        padding: 24px;
+        border-bottom: 1px solid #e6e9ef;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      h1 { margin: 0; font-size: 24px; font-weight: 600 }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 450px;
+        gap: 24px;
+        align-items: start;
+      }
+      .card {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(27,31,35,0.08);
+        border: 1px solid #f1f3f6;
+      }
+      label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 8px; font-weight: 500 }
+      input[type=text], input[type=number], select {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #e3e6ee;
+        margin-bottom: 12px;
+        font-size: 14px;
+      }
+      .row { display: flex; gap: 12px; align-items: flex-end }
+      button {
+        background: var(--accent);
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 0;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+      button:hover { background: #1d4ed8 }
+      button.secondary {
+        background: #f1f5f9;
+        color: var(--accent);
+        border: 1px solid #e2e8f0;
+      }
+      button.secondary:hover { background: #e2e8f0 }
+      table { width: 100%; border-collapse: collapse; margin-top: 16px }
+      th, td { padding: 12px 8px; border-bottom: 1px solid #f1f3f6; text-align: left; font-size: 14px }
+      th { background: #f8fafc; font-weight: 600; color: #374151 }
+      .gantt-wrap { overflow: auto; padding: 16px; background: #f8fafc; border-radius: 8px; margin-top: 12px }
+      canvas#gantt { height: 140px; width: 100% }
+      .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px }
+      .preset {
+        background: #fff;
+        border-radius: 8px;
+        padding: 10px 12px;
+        border: 1px solid #e2e8f0;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .preset:hover { border-color: var(--accent); background: #f8fafc }
+      .small { font-size: 13px; color: var(--muted) }
+      .footer {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #f1f3f6;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      h3 { margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #111 }
+      hr { border: 0; border-top: 1px solid #f1f3f6; margin: 20px 0 }
+      .inline-controls { display:flex; gap:12px; align-items:center }
+      .small-note { font-size:12px; color:var(--muted) }
+      @media (max-width: 1000px) { .grid { grid-template-columns: 1fr } .card { margin-bottom: 20px } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <h1>Процессын төлөвлөлт &amp; MIPS тооцоолол — Interactive</h1>
+        <div class="small" style="margin-top:8px">FCFS, SJF (non-preemptive), SRTF (preemptive), Round-Robin (quantum) болон MIPS тооцоолол</div>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="grid">
+        <div>
+          <div class="card">
+            <h3>Процессын оролт</h3>
+            <div class="row">
+              <input id="procName" placeholder="Нэр (A, B, ...)" type="text" />
+              <input id="procService" placeholder="Үйлчилгээ (ms)" type="number" min="0" step="0.1" />
+              <input id="procArrival" placeholder="Ирэлтийн (ms)" type="number" min="0" value="0" step="0.1" />
+              <button id="addProc">Нэмэх</button>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;align-items:center">
+              <button id="clearProcs" class="secondary">Бүгдийг арилгах</button>
+              <select id="algo" style="min-width:180px">
+                <option value="fcfs">FCFS</option>
+                <option value="sjf">SJF (non-preemptive)</option>
+                <option value="srtf">SRTF (preemptive)</option>
+                <option value="rr">Round-Robin</option>
+              </select>
+              <input id="quantum" type="number" step="0.1" min="0.1" style="width:120px" placeholder="Quantum ms" value="2" />
+
+              <!-- FIX: added showAll checkbox to prevent null access -->
+              <label for="showAll" style="display:flex;align-items:center;gap:8px;margin:0 6px 0 0;">
+                <input id="showAll" type="checkbox" />
+                <span class="small-note">All algorithms</span>
+              </label>
+
+              <button id="run">Тооцоолох</button>
+            </div>
+
+            <hr />
+
+            <div style="display:flex;gap:16px;align-items:flex-start;justify-content:space-between;margin-top:20px;flex-wrap:wrap">
+              <div style="flex:1;min-width:250px">
+                <div class="small" style="font-weight:500;margin-bottom:8px">Preset-үүд:</div>
+                <div class="presets">
+                  <div class="preset" data-preset="p1l">Бодлого1 - зүүн (A4,B5)</div>
+                  <div class="preset" data-preset="p1r">Бодлого1 - баруун (B6,G2)</div>
+                  <div class="preset" data-preset="p2l">Бодлого2 - зүүн (A7,B3)</div>
+                  <div class="preset" data-preset="p2r">Бодлого2 - баруун (B1,G5)</div>
+                </div>
+              </div>
+
+              <div style="text-align:right">
+                <div class="small" style="font-weight:500;margin-bottom:4px">Gantt Summary:</div>
+                <div class="small" id="ganttSummary" style="font-style:italic">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:24px">
+            <h3>Үр дүн</h3>
+            <div id="results"></div>
+            <div class="footer">Нэмэлт: Gantt chart-д сум харуулах, ба процессын finishing, waiting болон turnaround цагийг харуулна.</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h3>Gantt диаграм</h3>
+            <div class="gantt-wrap"><canvas id="gantt"></canvas></div>
+          </div>
+
+          <div class="card" style="margin-top:24px">
+            <h3>MIPS тооцоолуур</h3>
+            <div class="small" style="margin-bottom:12px">Өгөгдөл оруулж Tavg -&gt; MIPS (1/Tavg"). Time in microseconds.</div>
+
+            <table id="mipsTable">
+              <thead>
+                <tr><th>Заавар</th><th>Ажиллах хурд (µs)</th><th>Давтамж (%)</th><th></th></tr>
+              </thead>
+              <tbody id="mipsBody"></tbody>
+            </table>
+
+            <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+              <input id="insName" placeholder="А" style="width:60px" />
+              <input id="insTime" placeholder="0.1" type="number" step="0.01" style="width:120px" />
+              <input id="insFreq" placeholder="20" type="number" step="0.1" style="width:120px" />
+              <button id="addIns">Нэмэх</button>
+              <button id="calcMips">Тоолох</button>
+            </div>
+
+            <div style="margin-top:16px;padding:12px;background:#f8fafc;border-radius:8px">
+              <strong>Result:</strong> <span id="mipsResult" style="font-family:monospace">—</span>
+            </div>
+
+            <hr />
+
+            <div class="small" style="margin-bottom:12px">Preset MIPS (Бодлого 3,4,5) — товчлуурууд</div>
+            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+              <button class="secondary" id="presetM3">Бодл.3</button>
+              <button class="secondary" id="presetM4">Бодл.4</button>
+              <button class="secondary" id="presetM5">Бодл.5</button>
+              <button class="secondary" id="clearMips">Цэвэрлэх</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // --- State ---
+      const procs = [];
+      const resultsNode = document.getElementById('results');
+      const ganttCanvasMain = document.getElementById('gantt');
+      const ctxMain = ganttCanvasMain.getContext('2d');
+
+      function resizeCanvas() {
+        // resize all canvases and set DPR transform cleanly
+        const canvases = document.querySelectorAll('canvas');
+        canvases.forEach(c => {
+          // set pixel size
+          c.width = Math.max(1, Math.floor(c.clientWidth * devicePixelRatio));
+          c.height = Math.max(1, Math.floor(140 * devicePixelRatio));
+          const ctx = c.getContext('2d');
+          // reset transform and scale to DPR
+          ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        });
+      }
+
+      resizeCanvas();
+      window.addEventListener('resize', () => { resizeCanvas(); drawAllEmpty(); });
+
+      // --- UI helpers ---
+      function renderProcs() {
+        const table = ['<table><thead><tr><th>Нэр</th><th>Service</th><th>Arrival</th><th></th></tr></thead><tbody>'];
+        procs.forEach((p, i) => {
+          table.push(`<tr><td>${p.name}</td><td>${p.service}</td><td>${p.arrival}</td><td><button data-i="${i}" class="delBtn">Устгах</button></td></tr>`);
+        });
+        table.push('</tbody></table>');
+        document.getElementById('results').innerHTML = table.join('');
+        document.querySelectorAll('.delBtn').forEach(btn => btn.addEventListener('click', e => { procs.splice(+btn.dataset.i, 1); updateUI(); }));
+      }
+
+      function updateUI() { renderProcs(); }
+
+      document.getElementById('addProc').addEventListener('click', () => {
+        const name = document.getElementById('procName').value.trim() || ('P' + (procs.length + 1));
+        const service = parseFloat(document.getElementById('procService').value);
+        const arrival = parseFloat(document.getElementById('procArrival').value) || 0;
+        if (isNaN(service) || service < 0) { alert('Service огтлох шаардлагатай'); return }
+        procs.push({ name, service, arrival, remaining: service });
+        document.getElementById('procName').value = '';
+        document.getElementById('procService').value = '';
+        renderProcs();
+      });
+
+      document.getElementById('clearProcs').addEventListener('click', () => { procs.length = 0; updateUI(); drawAllEmpty(); document.getElementById('ganttSummary').textContent = '—'; });
+
+      // Presets (existing + comparison presets added)
+      document.querySelectorAll('.preset').forEach(el => el.addEventListener('click', () => {
+        const p = el.dataset.preset; procs.length = 0;
+        if (p === 'p1l') { procs.push({ name: 'A', service: 4, arrival: 0 }, { name: 'B', service: 5, arrival: 0 }) }
+        if (p === 'p1r') { procs.push({ name: 'B', service: 6, arrival: 0 }, { name: 'G', service: 2, arrival: 0 }) }
+        if (p === 'p2l') { procs.push({ name: 'A', service: 7, arrival: 0 }, { name: 'B', service: 3, arrival: 0 }) }
+        if (p === 'p2r') { procs.push({ name: 'B', service: 1, arrival: 0 }, { name: 'G', service: 5, arrival: 0 }) }
+        // comparison presets
+        if (p === 'cmp1') { // SRTF demo: A long, B arrives later
+          procs.push({ name: 'A', service: 8, arrival: 0 }, { name: 'B', service: 4, arrival: 1 });
+          // for these comparison presets we auto-enable "All algorithms" so user sees differences
+          const s = document.getElementById('showAll'); if (s) s.checked = true;
+        }
+        if (p === 'cmp2') { // FCFS vs SJF demo: same arrival but different lengths and user may have entered A first
+          procs.push({ name: 'A', service: 7, arrival: 0 }, { name: 'B', service: 3, arrival: 0 });
+          const s = document.getElementById('showAll'); if (s) s.checked = true;
+        }
+        if (p === 'cmpRR') { // Round-Robin quantum demo
+          procs.push({ name: 'A', service: 4, arrival: 0 }, { name: 'B', service: 5, arrival: 0 });
+          document.getElementById('quantum').value = 2; // default interesting quantum
+          const s = document.getElementById('showAll'); if (s) s.checked = true;
+        }
+        updateUI();
+      }));
+
+      // --- Scheduling algorithms ---
+      function fcfs(list) {
+        const ordered = list.slice().sort((a, b) => a.arrival - b.arrival);
+        let time = 0; const gantt = []; const out = [];
+        for (const p of ordered) {
+          if (time < p.arrival) time = p.arrival;
+          const start = time;
+          const finish = start + p.service;
+          const waiting = start - p.arrival;
+          const turnaround = finish - p.arrival;
+          gantt.push({ name: p.name, start, finish });
+          out.push({ ...p, waiting, turnaround, start, finish });
+          time = finish;
+        }
+        return { out, gantt };
+      }
+
+      function sjf(list) {
+        // non-preemptive SJF, arrival times considered
+        const listCopy = list.map(p => ({ ...p }));
+        let time = 0; const out = []; const gantt = [];
+        while (listCopy.length) {
+          const available = listCopy.filter(p => p.arrival <= time);
+          if (available.length === 0) { time = Math.min(...listCopy.map(p => p.arrival)); continue }
+          available.sort((a, b) => a.service - b.service || a.arrival - b.arrival);
+          const p = available[0];
+          const idx = listCopy.indexOf(p);
+          const start = Math.max(time, p.arrival);
+          const finish = start + p.service;
+          const waiting = start - p.arrival;
+          const turnaround = finish - p.arrival;
+          out.push({ ...p, waiting, turnaround, start, finish });
+          gantt.push({ name: p.name, start, finish });
+          time = finish;
+          listCopy.splice(idx, 1);
+        }
+        return { out, gantt };
+      }
+
+      function srtf(list) {
+        const items = list.map(p => ({ name: p.name, arrival: p.arrival, service: p.service, remaining: p.service }));
+        let time = 0; const gantt = []; let current = null; const completed = [];
+        while (completed.length < items.length) {
+          const available = items.filter(p => p.arrival <= time && p.remaining > 0);
+          if (available.length === 0) {
+            // jump to next arrival if nothing ready
+            const nextArr = Math.min(...items.filter(p => p.remaining > 0).map(p => p.arrival));
+            time = nextArr;
+            continue;
+          }
+          available.sort((a, b) => a.remaining - b.remaining || a.arrival - b.arrival);
+          const chosen = available[0];
+          if (!current || current.name !== chosen.name) {
+            // start new segment
+            gantt.push({ name: chosen.name, start: time });
+            current = chosen;
+          }
+          // run until next arrival or finish
+          const nextArrival = Math.min(...items.filter(p => p.arrival > time).map(p => p.arrival).concat([Infinity]));
+          const runTo = Math.min(time + chosen.remaining, nextArrival);
+          const delta = runTo - time;
+          chosen.remaining -= delta;
+          time += delta;
+          const seg = gantt[gantt.length - 1];
+          seg.finish = time;
+          if (chosen.remaining <= 1e-9) completed.push({ ...chosen });
+        }
+
+        // compute out with waiting/turnaround
+        const out = items.map(it => ({ name: it.name, service: it.service }));
+        // derive start/finish from gantt
+        const finishes = {}; const starts = {};
+        for (const seg of gantt) { if (starts[seg.name] === undefined) starts[seg.name] = seg.start; finishes[seg.name] = seg.finish; }
+        const result = out.map(p => ({
+          name: p.name,
+          service: p.service,
+          arrival: list.find(x => x.name === p.name).arrival,
+          start: starts[p.name],
+          finish: finishes[p.name],
+          waiting: (starts[p.name] - list.find(x => x.name === p.name).arrival),
+          turnaround: (finishes[p.name] - list.find(x => x.name === p.name).arrival)
+        }));
+        return { out: result, gantt };
+      }
+
+      function rr(list, quantum) {
+        const queue = list.map(p => ({ name: p.name, arrival: p.arrival, service: p.service, remaining: p.service }));
+        queue.sort((a, b) => a.arrival - b.arrival);
+        const gantt = []; let time = 0; const ready = []; let idx = 0; const finished = [];
+        while (finished.length < queue.length) {
+          while (idx < queue.length && queue[idx].arrival <= time) { ready.push(queue[idx]); idx++; }
+          if (ready.length === 0) { if (idx < queue.length) { time = queue[idx].arrival; continue } else break }
+          const p = ready.shift();
+          const start = time;
+          const run = Math.min(quantum, p.remaining);
+          p.remaining -= run;
+          time += run;
+          const finishSeg = time;
+          gantt.push({ name: p.name, start, finish: finishSeg });
+          while (idx < queue.length && queue[idx].arrival <= time) { ready.push(queue[idx]); idx++; }
+          if (p.remaining > 0) ready.push(p); else finished.push(p);
+        }
+
+        // compute waiting and turnaround: need each proc's first start and final finish
+        const starts = {}; const finishes = {};
+        for (const seg of gantt) { if (starts[seg.name] === undefined) starts[seg.name] = seg.start; finishes[seg.name] = seg.finish; }
+        const out = queue.map(p => ({
+          name: p.name,
+          service: p.service,
+          arrival: p.arrival,
+          start: starts[p.name] || 0,
+          finish: finishes[p.name] || 0,
+          waiting: ((finishes[p.name] || 0) - p.service - p.arrival),
+          turnaround: ((finishes[p.name] || 0) - p.arrival)
+        }));
+        return { out, gantt };
+      }
+
+      // draw helper for any canvas id
+      function drawGanttOnCanvas(segments, canvas) {
+        const ctx = canvas.getContext('2d');
+        // clear using logical pixels
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!segments || segments.length === 0) return;
+        const minStart = Math.min(...segments.map(s => s.start));
+        const maxFinish = Math.max(...segments.map(s => s.finish));
+        const range = Math.max(1, maxFinish - minStart);
+        const cW = canvas.clientWidth;
+        const left = 8; const top = 15; const barH = 22; const gap = 10;
+        const names = [...new Set(segments.map(s => s.name))];
+        names.forEach((n, i) => {
+          ctx.fillStyle = '#374151'; ctx.font = '13px system-ui'; ctx.fillText(n, left, top + i * (barH + gap) + 14);
+        });
+        segments.forEach(seg => {
+          const idx = names.indexOf(seg.name);
+          const x = left + 35 + ((seg.start - minStart) / range) * (cW - left - 70);
+          const w = Math.max(6, ((seg.finish - seg.start) / range) * (cW - left - 70));
+          const y = top + idx * (barH + gap);
+          ctx.fillStyle = stringToColor(seg.name);
+          ctx.fillRect(x, y, w, barH);
+          ctx.fillStyle = '#fff'; ctx.font = '12px system-ui'; ctx.fillText(seg.name, x + 6, y + 15);
+          ctx.fillStyle = '#6b7280'; ctx.font = '11px system-ui'; ctx.fillText(fix(seg.start), x - 2, y + barH + 12);
+          ctx.fillText(fix(seg.finish), x + w - 2, y + barH + 12);
+        });
+      }
+
+      function drawAllEmpty() {
+        // clear main + any algo canvases
+        document.querySelectorAll('canvas').forEach(c => {
+          const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
+        });
+      }
+
+      // Runner (now supports "show all")
+      document.getElementById('run').addEventListener('click', () => {
+        if (procs.length === 0) { alert('Процесс нэм!'); return }
+        // safely read showAll checkbox (defensive - fallback to false if element missing)
+        const showAllEl = document.getElementById('showAll');
+        const showAll = showAllEl ? showAllEl.checked : false;
+        const q = parseFloat(document.getElementById('quantum').value) || 2;
+        const list = procs.map(p => ({ name: p.name, service: parseFloat(p.service), arrival: parseFloat(p.arrival) }));
+
+        if (showAll) {
+          // compute all algorithms
+          const fc = fcfs(list);
+          const sj = sjf(list);
+          const sr = srtf(list);
+          const rrRes = rr(list, q);
+
+          // render results for each
+          const sections = [
+            { title: 'FCFS', data: fc },
+            { title: 'SJF (non-preemptive)', data: sj },
+            { title: 'SRTF (preemptive)', data: sr },
+            { title: `Round-Robin (q=${q} ms)`, data: rrRes }
+          ];
+            
+          // build HTML and canvases
+          let html = '';
+          sections.forEach((s, idx) => {
+            html += `<div style="margin-bottom:18px"><strong>${s.title}</strong>`;
+            html += `<div style="margin-top:8px"><canvas id="gantt_${idx}" style="width:100%;height:120px"></canvas></div>`;
+            html += buildTableHTML(s.data.out);
+            html += '</div>';
+          });
+
+          document.getElementById('results').innerHTML = html;
+          // resize new canvases then draw
+          resizeCanvas();
+          sections.forEach((s, idx) => {
+            const c = document.getElementById(`gantt_${idx}`);
+            if (c) drawGanttOnCanvas(s.data.gantt, c);
+          });
+
+          document.getElementById('ganttSummary').textContent = `All algorithms computed (${sections.length})`;
+        } else {
+          // single algorithm mode (previous behaviour)
+          const algo = document.getElementById('algo').value;
+          let res;
+          if (algo === 'fcfs') res = fcfs(list);
+          if (algo === 'sjf') res = sjf(list);
+          if (algo === 'srtf') res = srtf(list);
+          if (algo === 'rr') res = rr(list, q);
+          document.getElementById('results').innerHTML = buildTableHTML(res.out);
+          resizeCanvas();
+          drawGanttOnCanvas(res.gantt, ganttCanvasMain);
+          document.getElementById('ganttSummary').textContent = `Algorithm: ${document.getElementById('algo').value.toUpperCase()}`;
+        }
+      });
+
+      function buildTableHTML(out) {
+        const sorted = out.slice().sort((a, b) => a.name.localeCompare(b.name));
+        let html = '<table><thead><tr><th>Нэр</th><th>Arrival</th><th>Service</th><th>Start</th><th>Finish</th><th>Waiting</th><th>Turnaround</th></tr></thead><tbody>';
+        let sumW = 0, sumT = 0;
+        for (const p of sorted) {
+          html += `<tr><td>${p.name}</td><td>${fix(p.arrival)}</td><td>${fix(p.service)}</td><td>${fix(p.start)}</td><td>${fix(p.finish)}</td><td>${fix(p.waiting)}</td><td>${fix(p.turnaround)}</td></tr>`;
+          sumW += p.waiting; sumT += p.turnaround;
+        }
+        html += '</tbody></table>';
+        html += `<div style="margin-top:8px"><strong>Avg waiting:</strong> ${fix(sumW / sorted.length)} ms — <strong>Avg turnaround:</strong> ${fix(sumT / sorted.length)} ms</div>`;
+        return html;
+      }
+
+      function fix(x) { return (typeof x === 'number') ? Math.round(x * 100) / 100 : x }
+
+      function stringToColor(s) { // deterministic pastel
+        let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return `hsl(${h} 60% 45%)` }
+
+      // --- MIPS logic ---
+      const mipsBody = document.getElementById('mipsBody'); const mipsResult = document.getElementById('mipsResult');
+      function mipsRender() { mipsBody.innerHTML = mipsRows.map((r, i) => `<tr><td>${r.name}</td><td>${r.time}</td><td>${r.freq}</td><td><button data-i="${i}" class="delM">X</button></td></tr>`).join('') }
+      let mipsRows = [];
+      document.getElementById('addIns').addEventListener('click', () => {
+        const name = document.getElementById('insName').value || (`I${mipsRows.length + 1}`);
+        const time = parseFloat(document.getElementById('insTime').value);
+        const freq = parseFloat(document.getElementById('insFreq').value);
+        if (isNaN(time) || isNaN(freq)) { alert('Time and freq шаардлагатай'); return }
+        mipsRows.push({ name, time, freq }); mipsRender(); document.getElementById('insName').value = ''; document.getElementById('insTime').value = ''; document.getElementById('insFreq').value = '';
+        document.querySelectorAll('.delM').forEach(b => b.addEventListener('click', e => { mipsRows.splice(+b.dataset.i, 1); mipsRender(); }));
+      });
+      document.getElementById('calcMips').addEventListener('click', () => {
+        if (mipsRows.length === 0) { alert('Заавар нэмнэ үү'); return }
+        const sumFreq = mipsRows.reduce((s, r) => s + r.freq, 0);
+        // allow percentages or normalized
+        let Tavg = 0;
+        if (Math.abs(sumFreq - 100) < 1e-6) {
+          for (const r of mipsRows) Tavg += (r.time * (r.freq / 100));
+        } else {
+          const tot = sumFreq || 1;
+          for (const r of mipsRows) Tavg += (r.time * (r.freq / tot));
+        }
+        const mips = 1.0 / Tavg;
+        mipsResult.textContent = `${fix(Tavg)} µs — MIPS ≈ ${fix(mips)}`;
+      });
+      document.getElementById('clearMips').addEventListener('click', () => { mipsRows = []; mipsRender(); mipsResult.textContent = '—'; });
+
+      // Preset MIPS
+      document.getElementById('presetM3').addEventListener('click', () => {
+        mipsRows = [{ name: 'A', time: 0.2, freq: 20 }, { name: 'B', time: 0.4, freq: 70 }, { name: 'V', time: 0.3, freq: 10 }]; mipsRender();
+      });
+      document.getElementById('presetM4').addEventListener('click', () => {
+        mipsRows = [{ name: 'A', time: 0.4, freq: 50 }, { name: 'B', time: 0.3, freq: 50 }]; mipsRender();
+      });
+      document.getElementById('presetM5').addEventListener('click', () => {
+        mipsRows = [{ name: 'A', time: 0.1, freq: 20 }, { name: 'B', time: 0.2, freq: 30 }, { name: 'V', time: 0.4, freq: 30 }, { name: 'G', time: 0.5, freq: 20 }]; mipsRender();
+      });
+
+      // Utilities
+      // initial examples empty
+      updateUI();
+    </script>
+  </body>
+</html>
